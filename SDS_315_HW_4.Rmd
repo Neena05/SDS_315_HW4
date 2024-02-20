@@ -1,0 +1,337 @@
+---
+title: "SDS_315_HW_4"
+author: "Neena Varanasi"
+date: "2024-02-09"
+output: pdf_document
+---
+
+Name: Neena Varanasi
+
+EID: nv6558
+
+Github Link
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE, echo=FALSE, warning = FALSE}
+library(tidyverse)
+library(mosaic)
+library(kableExtra)
+```
+
+## Problem 1
+```{r, message = FALSE, echo=FALSE}
+gas_prices <- read_csv("gasprices.csv")
+```
+
+### Part A
+Claim: Gas stations charge more if they lack direct competition in sight.
+
+```{r, message = FALSE, echo=FALSE}
+gas_prices <- mutate (gas_prices, Competitors = ifelse(Competitors == "N", "No", ifelse(Competitors == "Y", "Yes", Competitors)))
+
+gas_prices %>%
+  group_by(Competitors) %>%
+  summarise(price = round(mean(Price), 2)) %>%
+  kbl(col.names = c("Presence of  Competitors","Mean Price of Regular Unleaded Gasoline ($)"), booktabs = TRUE) %>%
+  kable_styling() %>% 
+  kable_styling(latex_options = c("hold_position"))
+
+#gas stations without competition charge 2 cents more
+boot_competitors_price = do(10000)*diffmean(Price ~ Competitors, data=mosaic::resample(gas_prices))
+
+ggplot(boot_competitors_price) + 
+  geom_histogram(aes(x=diffmean)) +
+  ggtitle("Bootstrapped Samples of Gas Prices and Presence of Competition") +
+  xlab("Gas Price Mean Difference")+ 
+  theme_classic()
+
+conf_intervals <- confint(boot_competitors_price, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df) %>%
+  kable_styling()
+
+format(round(confint(boot_competitors_price, level = 0.95)[1,3],2),scientific=FALSE)
+
+```
+Evidence: According to the survey and table shown, gas stations without competition charge around 2 cents more for regular unleaded gasoline. However, when this survey undergoes re sampling to simulate randomness, I can say with 95% certainty that the gas price difference is approximately `r format(round(confint(boot_competitors_price, level = 0.95)[1,2],2),scientific=FALSE)` to `r format(round(confint(boot_competitors_price, level = 0.95)[1,3],2),scientific=FALSE)` for gas stations with no competitors in sight compared to gas stations with competitors in sight. This interval is relevant in the histogram as well.
+
+Conclusion: Therefore, because of this interval, the claim that gas stations that lack competition charge more is unsupported, as the data is statistically insignificant as the estimate includes a price difference of zero.
+
+\newpage
+
+### Part B
+
+Claim: The richer the area, the higher the gas prices.
+
+```{r, message = FALSE, echo=FALSE}
+boot_income_price = do(10000)*lm(Price ~ Income, data=mosaic::resample(gas_prices))
+
+conf_intervals <- confint(boot_income_price, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+
+kable(conf_intervals_df) %>%
+  kable_styling(latex_options = c("hold_position"))
+
+
+ggplot(gas_prices) + 
+  geom_jitter(aes(x=Price, y=Income), alpha=0.7) + 
+  geom_smooth(aes(x=Price, y=Income), method='lm') +
+  ylab('Median Household Income for ZIP Code') + 
+  xlab("Price Per Unleaded Gallon ($)") + 
+  ggtitle('Relationship between Gas Prices and Income') + 
+  theme_classic()
+
+```
+Evidence: The graph shows the relationship between the price of gas per unleaded gallon on April 3, 2016 and the average median household income for the ZIP code according to the 2014 census. The scatter plot of the survey is increasing as shown by the correlation of `r round(cor(gas_prices$Price, gas_prices$Income),2)`, indicating a low correlation. Overall, I'm 95% confident that the gas price increases by `r format(round((confint(boot_income_price, level = 0.95)[2,2] * 100000), 2),scientific=FALSE)` cents to `r format(round((confint(boot_income_price, level = 0.95)[2,3] * 100000), 2),scientific=FALSE)` cents per $100,000 increase in income.
+
+Conclusion: Therefore, the claim is supported as there is an increasing association between household income and gas prices, as seen by the interval of the slope. However, in a real world context, this increase is minuscule.
+
+\newpage
+
+### Part C
+
+Claim: Gas stations at stoplights charge more.
+
+
+```{r, message = FALSE, echo=FALSE}
+gas_prices <- mutate (gas_prices, Stoplight = ifelse(Stoplight == "N", "No", ifelse(Stoplight == "Y", "Yes", Stoplight)))
+
+gas_prices %>%
+  group_by(Stoplight) %>%
+  summarise(price = round(mean(Price), 2)) %>%
+  kbl(col.names = c("Presence of a Stoplight","Mean Price of Regular Unleaded Gasoline ($)"), booktabs = TRUE) %>%
+  kable_styling() %>% 
+  kable_styling(latex_options = c("hold_position"))
+
+boot_stoplights_price = do(10000)*diffmean(Price ~ Stoplight, data=mosaic::resample(gas_prices))
+
+
+ggplot(boot_stoplights_price) + 
+  geom_histogram(aes(x=diffmean)) +
+  ggtitle("Difference in Gas Prices and Presence of Stoplights") +
+  xlab("Price with Stoplights Minus Price without Stoplights")+ 
+  theme_classic()
+
+conf_intervals <- confint(boot_stoplights_price, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df) %>%
+  kable_styling()
+
+
+```
+
+Evidence: According to the survey and table shown, gas stations without stoplights charge around 1 cents less for regular unleaded gasoline. However, when this survey undergoes re sampling to simulate randomness, I can say with 95% certainty that gas prices are approximately `r format(round(confint(boot_stoplights_price, level = 0.95)[1,2],2),scientific=FALSE)` cents to `r format(round(confint(boot_stoplights_price, level = 0.95)[1,3],2),scientific=FALSE)` cents different for gas stations with no stoplights in sight compared to gas stations with stoplights in sight.  This interval is relevant in the histogram as well.
+
+Conclusion: Therefore, because of this interval, the claim that gas stations at stoplights charge more is false, as the data is statistically insignificant as the estimate includes a price difference of zero.
+
+\newpage
+
+### Part D
+
+Claim: Gas stations with direct highway access charge more.
+
+```{r, message = FALSE, echo=FALSE}
+gas_prices <- mutate (gas_prices, Highway = ifelse(Highway == "N", "No", ifelse(Highway == "Y", "Yes", Highway)))
+
+gas_prices %>%
+  group_by(Highway) %>%
+  summarise(price = round(mean(Price), 2)) %>%
+  kbl(col.names = c("Presence of a Highway","Mean Price of Regular Unleaded Gasoline ($)"), booktabs = TRUE) %>%
+  kable_styling() %>% 
+  kable_styling(latex_options = c("hold_position"))
+
+boot_highways_price = do(10000)*diffmean(Price ~ Highway, data=mosaic::resample(gas_prices))
+
+ggplot(boot_highways_price) + 
+  geom_histogram(aes(x=diffmean)) +
+  ggtitle("Difference in Gas Prices and Presence of Highways") +
+  xlab("Price with Highways Minus Price without Highways")+ 
+  theme_classic()
+
+conf_intervals <- confint(boot_highways_price, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df) %>%
+  kable_styling()
+```
+Evidence: According to the survey and table shown, gas stations with highway access charge around 5 cents more for regular unleaded gasoline. However, when this survey undergoes re sampling to simulate randomness, I can say with 95% certainty that gas prices are approximately are approximately `r format(round(confint(boot_highways_price, level = 0.95)[1,2],2),scientific=FALSE)` cents to `r format(round(confint(boot_highways_price, level = 0.95)[1,3],2),scientific=FALSE)` cents different for gas stations with direct highway access compared to gas stations without direct highway access. This interval is relevant in the histogram as well.
+
+Conclusion: Therefore, because of this interval, the claim that gas stations at stoplights charge more is true, as the data is statistically significant. However, the difference in price for highways with direct highway access is minimal, as it represents less than one percent of the price per unleaded gallon.
+
+\newpage
+
+### Part E
+
+Claim: Shell charges more than all other non-Shell brands
+
+```{r, message = FALSE, echo=FALSE}
+gas_prices <- mutate (gas_prices, Brand = ifelse(Brand != "Shell", "Non-Shell", "Shell"))
+
+gas_prices %>%
+  group_by(Brand) %>%
+  summarise(price = round(mean(Price), 2)) %>%
+  kbl(col.names = c("Brand Name","Mean Price of Regular Unleaded Gasoline ($)"), booktabs = TRUE) %>%
+  kable_styling(latex_options = c("hold_position"))
+
+
+boot_price_brand = do(10000)*diffmean(Price ~ Brand, data=mosaic::resample(gas_prices))
+
+ggplot(boot_price_brand) + 
+  geom_histogram(aes(x=diffmean)) +
+  ggtitle("Difference in Gas Prices and Brand of Gas") +
+  xlab("Non-Shell Price Minus Shell Price of Gas")+
+    theme_classic()
+
+conf_intervals <- confint(boot_price_brand, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df) %>%
+  kable_styling(latex_options = c("hold_position"))
+  
+```
+
+Evidence: According to the survey and table shown, non-Shell brand gas stations charge around 3 cents less for regular unleaded gasoline. However, when this survey undergoes re sampling to simulate randomness, I can say with 95% certainty that gas prices are approximately `r format(round(confint(boot_price_brand, level = 0.95)[1,2],2),scientific=FALSE)` cents to `r format(round(confint(boot_price_brand, level = 0.95)[1,3],2),scientific=FALSE)` cents different at non-Shell brand gas stations compared to Shell brand gas stations This interval is relevant in the histogram as well.
+
+Conclusion: Therefore, because of this interval, the claim that Shell gas stations charge more is false, as the data is statistically insignificant as the estimate includes a price difference of zero.
+
+\newpage
+## Problem 2
+```{r, message = FALSE, echo=FALSE}
+sclass <- read_csv("sclass.csv")
+
+sclass_1 <- filter(sclass, year == "2011", trim == "63 AMG")
+
+#bootstrap average mileage
+boot_mileage = do(10000)*mean(~mileage, data=mosaic::resample(sclass_1))
+
+conf_intervals <- confint(boot_mileage, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df, digits = 0) %>%
+  kable_styling(latex_options = c("hold_position"))
+
+format(round(confint(boot_mileage, level = 0.95)[1,2]),scientific=FALSE)
+
+```
+I can say with 95% certainty that the average car mileage for 2011 S-Class 63 AMGs that were hitting the used-car market is between `r format(round(confint(boot_mileage, level = 0.95)[1,2]),scientific=FALSE)` miles to `r format(round(confint(boot_mileage, level = 0.95)[1,3]),scientific=FALSE)` miles.
+
+```{r, message = FALSE, echo=FALSE}
+sclass_2 <- filter(sclass, year == "2014", trim == "550")
+sclass_2 <- mutate(sclass_2, isBlack = ifelse(color == "Black", TRUE, FALSE))
+
+boot_black = do(10000)*prop(~isBlack, data=mosaic::resample(sclass_2))
+
+conf_intervals <- confint(boot_black, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+
+conf_intervals_df <- conf_intervals_df %>%
+  mutate(lower = round(lower, 2),
+         upper = round(upper, 2),
+         estimate = round(estimate, 2))
+
+kable(conf_intervals_df) %>%
+  kable_styling(latex_options = c("hold_position"))
+
+
+```
+I can say with 95% certainty that the percentage of black cars for 2014 S-Class 550 AMGs that were hitting the used-car market is between `r format(round((confint(boot_black, level = 0.95)[1,2] * 100)),scientific=FALSE)`% and `r format(round((confint(boot_black, level = 0.95)[1,3] * 100)),scientific=FALSE)`%.
+
+## Problem 3
+```{r, message = FALSE, echo=FALSE}
+nbc <- read_csv("nbc_pilotsurvey.csv")
+
+#Part A
+
+nbc_a <- filter(nbc, Show == "Living with Ed" | Show == "My Name is Earl")
+
+#earl- ed
+
+boot_happy = do(10000)*diffmean(Q1_Happy~Show, data=mosaic::resample(nbc_a))
+
+conf_intervals <- confint(boot_happy, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df, digits = 2, caption = "Difference in Happiness Levels between My Name is Earl and Living with") %>%
+  kable_styling(latex_options = c("hold_position"))
+
+```
+1. Question: Which TV show consistently made viewers feel happier: "Living with Ed" or "My Name is Earl?"
+
+2. Approach: I used a bootstrap technique to construct a 95% confidence interval to answer this question.
+
+3. Results: According to the table above, I can say with 95% confidence that viewers give "Living with Ed" a happiness rating `r format(round((confint(boot_happy, level = 0.95)[1,2] ), 2),scientific=FALSE)` to `r format(round((confint(boot_happy, level = 0.95)[1,3] ), 2),scientific=FALSE)` higher than "My Name is Earl".  Because this interval encapsulates 0, the interval is statistically insignificant.
+
+4. Conclusion: Therefore, the difference in happiness ratings from the survey is too close to determine if "Living with Ed" or "My Name is Earl" makes viewers consistently feel happier.
+
+
+```{r, message = FALSE, echo=FALSE}
+#Part B
+nbc_b <- filter(nbc, Show == "The Biggest Loser" | Show == "The Apprentice: Los Angeles")
+
+boot_annoyed = do(10000)*diffmean(Q1_Annoyed~Show, data=mosaic::resample(nbc_b))
+
+#la was more annoyed
+
+conf_intervals <- confint(boot_annoyed, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df, digits = 2, caption = "Difference in Annoyance Levels between the Biggest Loser and The Apprentice: Los Angeles") %>%
+  kable_styling(latex_options = c("hold_position"))
+
+```
+1. Question: Which TV show consistently made viewers feel more annoyed: "The Biggest Loser" or "The Apprentice: Los Angeles?"
+
+2. Approach: I used a bootstrap technique to construct a 95% confidence interval to answer this question.
+
+3. Results: According to the table above, I can say with 95% confidence that viewers rated "The Biggest Loser" less annoying by `r format(round((confint(boot_annoyed, level = 0.95)[1,2] ), 2),scientific=FALSE)` to ` r format(round((confint(boot_annoyed, level = 0.95)[1,3] ), 2),scientific=FALSE)` .
+
+4. Conclusion: Therefore, the viewers find "The Apprentice: Los Angeles" more annoying than "The Biggest Loser" according to the survey results.
+
+```{r, message = FALSE, echo=FALSE}
+#Part C
+nbc_c <- filter(nbc, Show == "Dancing with the Stars")
+nbc_c <- mutate(nbc, Confusing = ifelse(Q2_Confusing >=4, TRUE, FALSE))
+
+boot_confused = do(10000)*prop(~Confusing, data=mosaic::resample(nbc_c))
+
+conf_intervals <- confint(boot_confused, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df, digits = 2) %>%
+  kable_styling(latex_options = c("hold_position"))
+
+```
+1. Question: What percentage of Americans consistently found the show "Dancing with the Stars" confusing?
+
+2. Approach: I used a bootstrap technique to construct a 95% confidence interval to answer this question.
+
+3. Results: According to the table above, I can say with 95% confidence that `r format(round((confint(boot_confused, level = 0.95)[1,2] ) * 100),scientific=FALSE)`% to ` r format(round((confint(boot_confused, level = 0.95)[1,3] ) * 100),scientific=FALSE)`% of "Dancing with the Starts" viewers find it confusing. 
+
+4. Conclusion: Therefore, we would expect around `r format(round((confint(boot_confused, level = 0.95)[1,2] ) * 100),scientific=FALSE)`% to `r format(round((confint(boot_confused, level = 0.95)[1,3] ) * 100),scientific=FALSE)`% of Americans to consistently find "Dancing with the Stars" confusing.
+
+## Problem 4
+```{r, message = FALSE, echo=FALSE}
+ebay <- read_csv("ebay.csv")
+ebay <- mutate(ebay, Pause = ifelse(adwords_pause == 1, TRUE, FALSE))
+
+#ad break- no ad break
+
+ebay %>%
+  group_by(Pause) %>%
+  summarise(ratio = round(mean(rev_ratio), 2)) %>%
+  kbl(col.names = c("Presence of an Ad Pause","Mean Ratio of Before to After Revenue"), booktabs = TRUE) %>%
+  kable_styling(latex_options = c("hold_position"))
+
+boot_ebay_ad = do(10000)*diffmean(rev_ratio ~ Pause, data=mosaic::resample(ebay))
+
+conf_intervals <- confint(boot_ebay_ad, level = 0.95)
+conf_intervals_df <- as.data.frame(conf_intervals)
+kable(conf_intervals_df, digits = 2) %>%
+  kable_styling(latex_options = c("hold_position"))
+
+```
+1. Question: Does the presence of GoogleAdWords create a consistently different revenue ratio?
+
+2. Approach: I used a bootstrap technique to construct a 95% confidence interval to answer this question.
+
+3. Results: According to the table above, I can say with 95% confidence that the before to after ratio was ` r format(round((confint(boot_ebay_ad, level = 0.95)[1,2] ), 2),scientific=FALSE)`% to ` r format(round((confint(boot_ebay_ad, level = 0.95)[1,3] ), 2),scientific=FALSE)` % different when GoogleAdWords were stopped.
+
+4. Conclusion: Therefore, GoogleAdWords does slightly increase the revenue of Ebay Products, as seen by the interval of revenue decrease for the treatment group where GoogleAdWords was stopped.
